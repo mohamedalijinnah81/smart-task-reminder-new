@@ -67,7 +67,7 @@ export default function TaskDialog({ open, task, onClose, onSaved }: TaskDialogP
       setForm({
         title: task.title,
         description: task.description ?? "",
-        due_date: task.due_date,
+        due_date: new Date(task.due_date).toISOString().split("T")[0],
         priority: String(task.priority),
         status: task.status,
         user_email: task.user_email,

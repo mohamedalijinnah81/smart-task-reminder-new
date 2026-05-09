@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     for (const taskRow of tasks as Task[]) {
       try {
-        const dueDate = parseISO(taskRow.due_date);
+        const dueDate = new Date(taskRow.due_date);
         dueDate.setHours(0, 0, 0, 0);
         const daysUntilDue = differenceInCalendarDays(dueDate, today);
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
         const { subject, html } = buildReminderEmail({
           taskTitle: taskRow.title,
-          dueDate: format(dueDate, "MMMM d, yyyy"),
+          dueDate: format(new Date(taskRow.due_date), "MMMM d, yyyy"),
           priority: taskRow.priority,
           type: reminderType,
           description: taskRow.description,

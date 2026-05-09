@@ -38,7 +38,7 @@ function getPriorityConfig(priority: number) {
 
 function getDueDateConfig(dueDate: string, status: TaskStatus) {
   if (status === "done") return null;
-  const due = parseISO(dueDate);
+  const due = new Date(dueDate);
   due.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -130,7 +130,7 @@ export default function TaskCard({ task, onStatusChange, onEdit, onDelete }: Tas
         </Badge>
 
         <Badge variant="outline" className="text-xs px-1.5 py-0 text-muted-foreground">
-          {format(parseISO(task.due_date), "MMM d")}
+          {format(new Date(task.due_date), "MMM d")}
         </Badge>
 
         {dueDateConfig && (
