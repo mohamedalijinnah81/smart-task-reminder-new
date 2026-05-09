@@ -51,7 +51,7 @@ export async function PATCH(
     values.push(id);
     await pool.execute(
       `UPDATE tasks SET ${updates.join(", ")} WHERE id = ?`,
-      values
+      values as any
     );
 
     const [rows] = await pool.execute<RowDataPacket[]>(

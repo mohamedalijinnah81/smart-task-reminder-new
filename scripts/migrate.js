@@ -3,6 +3,7 @@
 // This creates all tables from scratch.
 
 const mysql = require("mysql2/promise");
+require("dotenv").config({ path: ".env.local" });
 
 async function migrate() {
   const connection = await mysql.createConnection({
@@ -11,6 +12,7 @@ async function migrate() {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    ssl: { rejectUnauthorized: false },
     multipleStatements: true,
   });
 
