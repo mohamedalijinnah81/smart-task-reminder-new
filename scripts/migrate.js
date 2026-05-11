@@ -1,11 +1,9 @@
 // scripts/migrate.js
-// Run with: node scripts/migrate.js
-// This creates all tables from scratch.
-
-const mysql = require("mysql2/promise");
 require("dotenv").config({ path: ".env.local" });
+const mysql = require("mysql2/promise");
 
 async function migrate() {
+  console.log("DB_HOST:", process.env.DB_HOST); // debug
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT || "3306"),
@@ -16,7 +14,7 @@ async function migrate() {
     multipleStatements: true,
   });
 
-  console.log("Running migrations...");
+  console.log("Connected. Running migrations...");
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS tasks (
@@ -24,13 +22,24 @@ async function migrate() {
       title         VARCHAR(255) NOT NULL,
       description   TEXT,
       due_date      DATE NOT NULL,
-      priority      TINYINT UNSIGNED NOT NULL DEFAULT 5 COMMENT '1-10 scale',
+      priority      TINYINT UNSIGNED NOT NULL DEFAULT 5,
       status        ENUM('todo','in_progress','done') NOT NULL DEFAULT 'todo',
-      user_email    VARCHAR(255) NOT NULL COMMENT 'Who to remind',
+      label         VARCHAR(100) DEFAULT NULL,
+      user_email    VARCHAR(255) NOT NULL,
       created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+
+  // Add label column to existing installs
+  try {
+    await connection.execute(
+      `ALTER TABLE tasks ADD COLUMN label VARCHAR(100) DEFAULT NULL AFTER status;`
+    );
+    console.log("Added label column.");
+  } catch {
+    console.log("label column already exists, skipping.");
+  }
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS reminder_logs (
@@ -52,7 +61,6 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  // Seed default settings
   await connection.execute(`
     INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES
       ('default_user_email', ''),

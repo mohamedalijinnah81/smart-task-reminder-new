@@ -13,11 +13,9 @@ export async function GET(
       "SELECT * FROM tasks WHERE id = ?",
       [id]
     );
-
     if ((rows as RowDataPacket[]).length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
-
     return NextResponse.json({ task: rows[0] });
   } catch (error) {
     console.error("GET /api/tasks/[id] error:", error);
@@ -33,7 +31,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
 
-    const allowedFields = ["title", "description", "due_date", "priority", "status", "user_email"];
+    const allowedFields = ["title", "description", "due_date", "priority", "status", "label", "user_email"];
     const updates: string[] = [];
     const values: unknown[] = [];
 

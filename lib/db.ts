@@ -20,7 +20,6 @@ function createPool(): mysql.Pool {
   });
 }
 
-// Reuse pool across hot-reloads in dev
 const pool: mysql.Pool = global.__mysqlPool ?? createPool();
 if (process.env.NODE_ENV !== "production") global.__mysqlPool = pool;
 

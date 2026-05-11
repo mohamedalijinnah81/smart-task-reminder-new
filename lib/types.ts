@@ -9,6 +9,7 @@ export interface Task {
   due_date: string; // YYYY-MM-DD
   priority: number; // 1-10
   status: TaskStatus;
+  label: string | null;
   user_email: string;
   created_at: string;
   updated_at: string;
@@ -32,9 +33,19 @@ export interface CreateTaskInput {
   due_date: string;
   priority: number;
   status?: TaskStatus;
+  label?: string;
   user_email: string;
 }
 
 export interface UpdateTaskInput extends Partial<CreateTaskInput> {
   id: number;
+}
+
+// AI parsed task (before user_email is added)
+export interface AIParsedTask {
+  title: string;
+  description?: string;
+  due_date: string; // YYYY-MM-DD
+  priority: number; // 1-10
+  label?: string;
 }

@@ -14,9 +14,7 @@ export async function GET() {
       settings[row.setting_key] = row.setting_value ?? "";
     }
 
-    // Never expose smtp_pass to client
     delete settings["smtp_pass"];
-
     return NextResponse.json({ settings });
   } catch (error) {
     console.error("GET /api/settings error:", error);
@@ -40,7 +38,6 @@ export async function PUT(req: NextRequest) {
 
     for (const [key, value] of Object.entries(body)) {
       if (!allowedKeys.includes(key)) continue;
-      // Don't overwrite smtp_pass if blank (user left it empty)
       if (key === "smtp_pass" && value === "") continue;
 
       await pool.execute(

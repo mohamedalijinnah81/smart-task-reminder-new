@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
     query += " ORDER BY due_date ASC, priority DESC";
 
     const [rows] = await pool.execute<RowDataPacket[]>(query, params);
-
     return NextResponse.json({ tasks: rows });
   } catch (error) {
     console.error("GET /api/tasks error:", error);
@@ -31,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body: CreateTaskInput = await req.json();
-    const { title, description, due_date, priority, status = "todo", user_email } = body;
+    const { title, description, due_date, priority, status = "todo", label, user_email } = body;
 
     if (!title || !due_date || !user_email) {
       return NextResponse.json(
@@ -48,9 +47,9 @@ export async function POST(req: NextRequest) {
     }
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO tasks (title, description, due_date, priority, status, user_email)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, description ?? null, due_date, priority, status, user_email]
+      `INSERT INTO tasks (title, description, due_date, priority, status, label, user_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, description ?? null, due_date, priority, status, label ?? null, user_email]
     );
 
     const [rows] = await pool.execute<RowDataPacket[]>(

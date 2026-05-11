@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TaskChaser — Smart Task Reminders",
   description: "Stay on top of your tasks with proactive reminders",
+  viewport: "width=device-width, initial-scale=1",
 };
 
 export default function RootLayout({
@@ -31,7 +32,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
-        <Toaster />
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

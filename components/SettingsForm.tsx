@@ -41,13 +41,13 @@ export default function SettingsForm() {
         const data = await res.json();
         setSettings((prev) => ({ ...prev, ...data.settings }));
       } catch {
-        toast("Failed to load settings");
+        toast.error("Failed to load settings");
       } finally {
         setLoading(false);
       }
     }
     fetchSettings();
-  }, [toast]);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -58,9 +58,9 @@ export default function SettingsForm() {
         body: JSON.stringify(settings),
       });
       if (!res.ok) throw new Error();
-      toast("Settings saved");
+      toast.success("Settings saved");
     } catch {
-      toast("Failed to save settings");
+      toast.error("Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -81,7 +81,7 @@ export default function SettingsForm() {
 
   return (
     <AppShell>
-      <div className="p-6 max-w-2xl mx-auto space-y-8">
+      <div className="max-w-2xl mx-auto w-full px-4 py-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -89,9 +89,8 @@ export default function SettingsForm() {
           </p>
         </div>
 
-        {/* Default user */}
         <section className="border rounded-lg p-5 space-y-4">
-          <div className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center gap-2 font-semibold text-sm">
             <Mail className="w-4 h-4 text-primary" />
             Default User
           </div>
@@ -104,15 +103,12 @@ export default function SettingsForm() {
               value={settings.default_user_email}
               onChange={set("default_user_email")}
             />
-            <p className="text-xs text-muted-foreground">
-              Pre-filled when creating new tasks.
-            </p>
+            <p className="text-xs text-muted-foreground">Pre-filled when creating new tasks.</p>
           </div>
         </section>
 
-        {/* Reminder settings */}
         <section className="border rounded-lg p-5 space-y-4">
-          <div className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center gap-2 font-semibold text-sm">
             <Bell className="w-4 h-4 text-primary" />
             Reminder Settings
           </div>
@@ -128,74 +124,43 @@ export default function SettingsForm() {
               className="w-32"
             />
             <p className="text-xs text-muted-foreground">
-              An early reminder will be sent this many days before the due date.
-              You&apos;ll also receive reminders on the due date itself, and daily after it&apos;s overdue.
+              Early reminder N days before. Also sends on due date + daily when overdue.
             </p>
           </div>
         </section>
 
-        {/* SMTP settings */}
         <section className="border rounded-lg p-5 space-y-4">
-          <div className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center gap-2 font-semibold text-sm">
             <Server className="w-4 h-4 text-primary" />
             SMTP Configuration
           </div>
 
           <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="smtp_host">SMTP Host</Label>
-                <Input
-                  id="smtp_host"
-                  placeholder="smtp.gmail.com"
-                  value={settings.smtp_host}
-                  onChange={set("smtp_host")}
-                />
+                <Input id="smtp_host" placeholder="smtp.gmail.com" value={settings.smtp_host} onChange={set("smtp_host")} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="smtp_port">SMTP Port</Label>
-                <Input
-                  id="smtp_port"
-                  type="number"
-                  placeholder="587"
-                  value={settings.smtp_port}
-                  onChange={set("smtp_port")}
-                />
+                <Input id="smtp_port" type="number" placeholder="587" value={settings.smtp_port} onChange={set("smtp_port")} />
               </div>
             </div>
 
             <div className="grid gap-1.5">
               <Label htmlFor="smtp_from_name">From Name</Label>
-              <Input
-                id="smtp_from_name"
-                placeholder="Task Reminder"
-                value={settings.smtp_from_name}
-                onChange={set("smtp_from_name")}
-              />
+              <Input id="smtp_from_name" placeholder="Task Reminder" value={settings.smtp_from_name} onChange={set("smtp_from_name")} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="smtp_user">SMTP Username</Label>
-                <Input
-                  id="smtp_user"
-                  placeholder="you@gmail.com"
-                  value={settings.smtp_user}
-                  onChange={set("smtp_user")}
-                />
+                <Input id="smtp_user" placeholder="you@gmail.com" value={settings.smtp_user} onChange={set("smtp_user")} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="smtp_pass">SMTP Password</Label>
-                <Input
-                  id="smtp_pass"
-                  type="password"
-                  placeholder="••••••••"
-                  value={settings.smtp_pass}
-                  onChange={set("smtp_pass")}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to keep existing password.
-                </p>
+                <Input id="smtp_pass" type="password" placeholder="••••••••" value={settings.smtp_pass} onChange={set("smtp_pass")} />
+                <p className="text-xs text-muted-foreground">Leave blank to keep existing.</p>
               </div>
             </div>
           </div>
