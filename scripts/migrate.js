@@ -3,7 +3,7 @@ require("dotenv").config({ path: ".env.local" });
 const mysql = require("mysql2/promise");
 
 async function migrate() {
-  console.log("DB_HOST:", process.env.DB_HOST); // debug
+  console.log("DB_HOST:", process.env.DB_HOST);
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT || "3306"),
@@ -33,13 +33,9 @@ async function migrate() {
 
   // Add label column to existing installs
   try {
-    await connection.execute(
-      `ALTER TABLE tasks ADD COLUMN label VARCHAR(100) DEFAULT NULL AFTER status;`
-    );
+    await connection.execute(`ALTER TABLE tasks ADD COLUMN label VARCHAR(100) DEFAULT NULL AFTER status;`);
     console.log("Added label column.");
-  } catch {
-    console.log("label column already exists, skipping.");
-  }
+  } catch { console.log("label column already exists."); }
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS reminder_logs (
@@ -68,11 +64,17 @@ async function migrate() {
       ('smtp_port', '587'),
       ('smtp_user', ''),
       ('smtp_pass', ''),
-      ('smtp_from_name', 'Task Reminder'),
-      ('reminder_days_before', '2');
+      ('smtp_from_name', 'TaskChaser'),
+      ('reminder_days_before', '2'),
+      ('reminder_time', '09:00');
   `);
 
-  console.log("✅ Migration complete.");
+  // Add reminder_time to existing installs
+  try {
+    await connection.execute(`INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('reminder_time', '09:00');`);
+  } catch { /* ignore */ }
+
+  console.log("Migration complete.");
   await connection.end();
 }
 

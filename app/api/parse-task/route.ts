@@ -1,31 +1,44 @@
 // app/api/parse-task/route.ts
-// Converts natural language input (typed or transcribed voice) into a structured task JSON
-
 import { NextRequest, NextResponse } from "next/server";
-
-const today = () => new Date().toISOString().split("T")[0];
+import { format, addHours } from "date-fns";
 
 export async function POST(req: NextRequest) {
   try {
     const { text } = await req.json();
-
     if (!text?.trim()) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
-    const systemPrompt = `You are a task extraction assistant. The user will give you a natural language description of a task — either typed or transcribed from voice. Your job is to extract the task details and return a valid JSON object.
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    const tomorrowStr = format(addHours(now, 24), "yyyy-MM-dd");
 
-Today's date is ${today()}.
+    const systemPrompt = `You are a lightning-fast task extraction assistant. Convert natural language into a task JSON object.
 
-Extract:
-- "title": Short, clear task title (required). Max 100 chars.
-- "description": Optional longer description or context. Can be null.
-- "due_date": Due date in YYYY-MM-DD format (required). If the user says "tomorrow", compute it. If they say "next Friday", compute it relative to today. If no date is mentioned, default to 7 days from today.
-- "priority": Integer 1-10 (required). Default 5. Map hints like "urgent", "critical", "ASAP" → 9-10. "important", "high priority" → 7-8. "when you can", "low priority" → 2-3.
-- "label": Optional short category label like "Work", "Personal", "Finance", "Health", "Calls", "Follow-up", etc. Infer from context. Can be null.
+Today is ${todayStr}. Current time: ${format(now, "HH:mm")}.
+
+DEFAULTS (use these when not specified by user):
+- due_date: "${tomorrowStr}" (always default to next 24 hours if no date mentioned)
+- priority: 5 (medium — only go higher if user says urgent/critical/ASAP/important)
+- label: null (infer from context if obvious, e.g. "call" -> "Calls", "invoice/payment" -> "Finance")
+- description: null
+
+PRIORITY MAPPING:
+- "urgent", "ASAP", "critical", "immediately" -> 9
+- "important", "high priority", "soon" -> 7
+- nothing mentioned -> 5 (medium)
+- "whenever", "low priority", "no rush" -> 3
+
+DATE PARSING (relative to today ${todayStr}):
+- "tomorrow" -> ${tomorrowStr}
+- "today" -> ${todayStr}
+- "next week" -> 7 days from today
+- "next [weekday]" -> compute correctly
+- "in X days/hours" -> compute correctly
+- No date mentioned -> ${tomorrowStr}
 
 Return ONLY valid JSON, no markdown, no explanation:
-{ "title": "...", "description": null, "due_date": "YYYY-MM-DD", "priority": 5, "label": null }`;
+{"title":"...","description":null,"due_date":"YYYY-MM-DD","priority":5,"label":null}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -34,40 +47,32 @@ Return ONLY valid JSON, no markdown, no explanation:
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.2,
+        temperature: 0.1,
+        max_tokens: 200,
       }),
     });
 
     const data = await response.json();
-
-    if (!response.ok) {
-      console.error("OpenAI error:", data);
-      throw new Error(data.error?.message || "OpenAI request failed");
-    }
+    if (!response.ok) throw new Error(data.error?.message || "OpenAI error");
 
     const content = data.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
 
-    // Validate required fields
-    if (!parsed.title || !parsed.due_date) {
-      throw new Error("AI response missing required fields");
-    }
-
-    // Clamp priority
+    if (!parsed.title) throw new Error("Could not extract task title");
+    parsed.due_date = parsed.due_date || tomorrowStr;
     parsed.priority = Math.min(10, Math.max(1, parseInt(parsed.priority) || 5));
+    parsed.description = parsed.description || null;
+    parsed.label = parsed.label || null;
 
     return NextResponse.json({ task: parsed });
   } catch (error) {
     console.error("parse-task error:", error);
-    return NextResponse.json(
-      { error: "Failed to parse task from input" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to parse task" }, { status: 500 });
   }
 }

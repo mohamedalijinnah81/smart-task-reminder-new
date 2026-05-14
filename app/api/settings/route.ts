@@ -8,12 +8,10 @@ export async function GET() {
     const [rows] = await pool.execute<RowDataPacket[]>(
       "SELECT setting_key, setting_value FROM app_settings"
     );
-
     const settings: Record<string, string> = {};
     for (const row of rows as { setting_key: string; setting_value: string }[]) {
       settings[row.setting_key] = row.setting_value ?? "";
     }
-
     delete settings["smtp_pass"];
     return NextResponse.json({ settings });
   } catch (error) {
@@ -25,29 +23,19 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   try {
     const body: Record<string, string> = await req.json();
-
     const allowedKeys = [
-      "default_user_email",
-      "smtp_host",
-      "smtp_port",
-      "smtp_user",
-      "smtp_pass",
-      "smtp_from_name",
-      "reminder_days_before",
+      "default_user_email", "smtp_host", "smtp_port", "smtp_user",
+      "smtp_pass", "smtp_from_name", "reminder_days_before", "reminder_time",
     ];
-
     for (const [key, value] of Object.entries(body)) {
       if (!allowedKeys.includes(key)) continue;
       if (key === "smtp_pass" && value === "") continue;
-
       await pool.execute(
         `INSERT INTO app_settings (setting_key, setting_value)
-         VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE setting_value = ?`,
+         VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?`,
         [key, value, value]
       );
     }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("PUT /api/settings error:", error);

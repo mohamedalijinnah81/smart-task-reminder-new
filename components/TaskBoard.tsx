@@ -6,25 +6,48 @@ import AppShell from "./AppShelll";
 import TaskCard from "./TaskCard";
 import TaskDialog from "./TaskDialog";
 import AITaskInput from "./AITaskInput";
-import { Task, TaskStatus, AIParsedTask } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Task, TaskStatus } from "@/lib/types";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const COLUMNS: { id: TaskStatus; label: string }[] = [
-  { id: "todo", label: "To Do" },
-  { id: "in_progress", label: "In Progress" },
-  { id: "done", label: "Done" },
+// Trello column colors
+const COLUMNS: {
+  id: TaskStatus;
+  label: string;
+  headerBg: string;
+  columnBg: string;
+  count_bg: string;
+}[] = [
+  {
+    id: "todo",
+    label: "To Do",
+    headerBg: "#0052cc",
+    columnBg: "#e9f0ff",
+    count_bg: "#cfe0ff",
+  },
+  {
+    id: "in_progress",
+    label: "In Progress",
+    headerBg: "#f59e0b",
+    columnBg: "#fffbeb",
+    count_bg: "#fde68a",
+  },
+  {
+    id: "done",
+    label: "Done",
+    headerBg: "#16a34a",
+    columnBg: "#f0fdf4",
+    count_bg: "#bbf7d0",
+  },
 ];
 
 export default function TaskBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
-  const [prefillTask, setPrefillTask] = useState<AIParsedTask | null>(null);
-  // Mobile: which column tab is active
+  const [defaultEmail, setDefaultEmail] = useState("");
+  // Mobile tab
   const [mobileCol, setMobileCol] = useState<TaskStatus>("todo");
 
   const fetchTasks = useCallback(async () => {
@@ -41,9 +64,16 @@ export default function TaskBoard() {
 
   useEffect(() => {
     fetchTasks();
+    // Load default email for AI task creation
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => setDefaultEmail(d.settings?.default_user_email ?? ""))
+      .catch(() => {});
   }, [fetchTasks]);
 
   const handleStatusChange = async (task: Task, status: TaskStatus) => {
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
@@ -51,158 +81,160 @@ export default function TaskBoard() {
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
     } catch {
       toast.error("Failed to update task");
+      fetchTasks(); // revert
     }
   };
 
   const handleDelete = async (task: Task) => {
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
       toast.success("Task deleted");
     } catch {
       toast.error("Failed to delete task");
+      fetchTasks();
     }
   };
 
-  const handleEdit = (task: Task) => {
-    setEditTask(task);
-    setPrefillTask(null);
-    setDialogOpen(true);
-  };
-
-  const handleAIParsed = (parsed: AIParsedTask) => {
-    setPrefillTask(parsed);
-    setEditTask(null);
-    setDialogOpen(true);
-    toast.success("Task parsed! Review and confirm.");
-  };
-
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-    setEditTask(null);
-    setPrefillTask(null);
-  };
-
-  const handleSaved = () => {
-    fetchTasks();
-    handleDialogClose();
-  };
-
   const tasksByStatus = (status: TaskStatus) =>
-    tasks.filter((t) => t.status === status).sort((a, b) => b.priority - a.priority);
+    tasks
+      .filter((t) => t.status === status)
+      .sort((a, b) => b.priority - a.priority);
 
   const activeTasks = tasks.filter((t) => t.status !== "done").length;
 
   return (
     <AppShell>
-      <div className="max-w-screen-xl mx-auto w-full px-4 py-5 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="p-4 max-w-screen-xl mx-auto w-full space-y-4">
+        {/* Board title row */}
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold sm:text-2xl">Task Board</h1>
-            <p className="text-sm text-muted-foreground">
-              {activeTasks} active {activeTasks === 1 ? "task" : "tasks"}
+            <h1 className="text-lg font-bold text-gray-800">My Tasks</h1>
+            <p className="text-xs text-gray-500">
+              {activeTasks} active · {tasks.filter((t) => t.status === "done").length} done
             </p>
           </div>
-          <Button onClick={() => { setPrefillTask(null); setEditTask(null); setDialogOpen(true); }} size="sm" className="gap-1.5 shrink-0">
-            <Plus className="w-4 h-4" />
-            <span>Add Task</span>
-          </Button>
         </div>
 
-        {/* AI Task Input */}
-        <AITaskInput onParsed={handleAIParsed} />
+        {/* AI Fast-input bar */}
+        <AITaskInput onCreated={fetchTasks} defaultEmail={defaultEmail} />
 
-        {/* Board */}
+        {/* Loading */}
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
           </div>
         ) : (
           <>
             {/* ── Mobile: tab switcher ── */}
-            <div className="flex md:hidden border-b gap-0">
+            <div className="flex md:hidden border-b border-gray-200 bg-white rounded-t-lg overflow-hidden shadow-sm">
               {COLUMNS.map((col) => (
                 <button
                   key={col.id}
                   onClick={() => setMobileCol(col.id)}
                   className={cn(
-                    "flex-1 py-2 text-sm font-medium transition-colors border-b-2",
+                    "flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2",
                     mobileCol === col.id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                      ? "border-b-2 text-white"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   )}
+                  style={
+                    mobileCol === col.id
+                      ? { borderBottomColor: col.headerBg, background: col.headerBg }
+                      : {}
+                  }
                 >
                   {col.label}
-                  <span className="ml-1.5 text-xs opacity-60">
-                    ({tasksByStatus(col.id).length})
+                  <span
+                    className="ml-1.5 text-xs font-bold rounded-full px-1.5"
+                    style={
+                      mobileCol === col.id
+                        ? { background: "rgba(255,255,255,0.3)" }
+                        : { background: "#e5e7eb", color: "#6b7280" }
+                    }
+                  >
+                    {tasksByStatus(col.id).length}
                   </span>
                 </button>
               ))}
             </div>
 
-            {/* ── Mobile: single column view ── */}
+            {/* Mobile single column */}
             <div className="flex flex-col gap-2 md:hidden">
               {tasksByStatus(mobileCol).map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
                   onStatusChange={handleStatusChange}
-                  onEdit={handleEdit}
+                  onEdit={setEditTask}
                   onDelete={handleDelete}
                 />
               ))}
               {tasksByStatus(mobileCol).length === 0 && (
-                <div className="border-2 border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground">
+                <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center text-sm text-gray-400">
                   No tasks here
                 </div>
               )}
             </div>
 
-            {/* ── Desktop: 3-column kanban ── */}
-            <div className="hidden md:grid md:grid-cols-3 gap-4">
+            {/* ── Desktop: 3-column Trello kanban ── */}
+            <div className="hidden md:flex gap-4 items-start">
               {COLUMNS.map((col) => (
-                <div key={col.id} className="flex flex-col gap-3 min-w-0">
+                <div
+                  key={col.id}
+                  className="flex-1 min-w-0 rounded-xl flex flex-col"
+                  style={{ background: col.columnBg }}
+                >
                   {/* Column header */}
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-sm font-semibold">{col.label}</span>
-                    <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium">
+                  <div
+                    className="flex items-center justify-between px-3 py-2.5 rounded-t-xl"
+                    style={{ background: col.headerBg }}
+                  >
+                    <span className="text-sm font-bold text-white tracking-wide">
+                      {col.label}
+                    </span>
+                    <span
+                      className="text-xs font-bold rounded-full px-2 py-0.5"
+                      style={{ background: col.count_bg, color: col.headerBg }}
+                    >
                       {tasksByStatus(col.id).length}
                     </span>
                   </div>
 
                   {/* Cards */}
-                  <div className="flex flex-col gap-2 min-h-[120px]">
+                  <div className="flex flex-col gap-2 p-3 min-h-[120px]">
                     {tasksByStatus(col.id).map((task) => (
                       <TaskCard
                         key={task.id}
                         task={task}
                         onStatusChange={handleStatusChange}
-                        onEdit={handleEdit}
+                        onEdit={setEditTask}
                         onDelete={handleDelete}
                       />
                     ))}
                     {tasksByStatus(col.id).length === 0 && (
-                      <div className="border-2 border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground">
-                        Empty
+                      <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center text-xs text-gray-400">
+                        Drop tasks here
                       </div>
                     )}
                   </div>
 
+                  {/* Quick add hint at bottom of To Do */}
                   {col.id === "todo" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-muted-foreground justify-start"
-                      onClick={() => { setPrefillTask(null); setEditTask(null); setDialogOpen(true); }}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add task
-                    </Button>
+                    <div className="px-3 pb-3">
+                      <button
+                        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-xs text-gray-500 hover:bg-white/60 transition-colors"
+                        onClick={() => {
+                          // Focus the AI input at top
+                          document.querySelector<HTMLInputElement>('input[placeholder*="Type a task"]')?.focus();
+                        }}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add a task above ↑
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -211,12 +243,12 @@ export default function TaskBoard() {
         )}
       </div>
 
+      {/* Edit dialog — only shown when user explicitly clicks Edit */}
       <TaskDialog
-        open={dialogOpen}
+        open={!!editTask}
         task={editTask}
-        prefill={prefillTask}
-        onClose={handleDialogClose}
-        onSaved={handleSaved}
+        onClose={() => setEditTask(null)}
+        onSaved={() => { fetchTasks(); setEditTask(null); }}
       />
     </AppShell>
   );
