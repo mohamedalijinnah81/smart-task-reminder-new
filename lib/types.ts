@@ -6,8 +6,9 @@ export interface Task {
   id: number;
   title: string;
   description: string | null;
-  due_date: string; // YYYY-MM-DD
-  priority: number; // 1-10
+  due_date: string;       // YYYY-MM-DD
+  due_time: string | null; // HH:MM or null
+  priority: number;       // 1-10
   status: TaskStatus;
   label: string | null;
   user_email: string;
@@ -15,37 +16,22 @@ export interface Task {
   updated_at: string;
 }
 
-export interface ReminderLog {
-  id: number;
-  task_id: number;
-  sent_at: string;
-  type: "before_due" | "on_due" | "overdue";
-}
-
-export interface AppSetting {
-  setting_key: string;
-  setting_value: string | null;
-}
-
 export interface CreateTaskInput {
   title: string;
-  description?: string;
+  description?: string | null;
   due_date: string;
+  due_time?: string | null;
   priority: number;
   status?: TaskStatus;
-  label?: string;
+  label?: string | null;
   user_email: string;
 }
 
-export interface UpdateTaskInput extends Partial<CreateTaskInput> {
-  id: number;
-}
-
-// AI parsed task (before user_email is added)
 export interface AIParsedTask {
   title: string;
-  description?: string;
-  due_date: string; // YYYY-MM-DD
-  priority: number; // 1-10
-  label?: string;
+  description?: string | null;
+  due_date: string;
+  due_time?: string | null;
+  priority: number;
+  label?: string | null;
 }

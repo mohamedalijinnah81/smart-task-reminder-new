@@ -9,17 +9,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const [rows] = await pool.execute<RowDataPacket[]>(
-      "SELECT * FROM tasks WHERE id = ?",
-      [id]
-    );
-    if ((rows as RowDataPacket[]).length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
-    }
+    const [rows] = await pool.execute<RowDataPacket[]>("SELECT * FROM tasks WHERE id = ?", [id]);
+    if (!(rows as RowDataPacket[]).length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ task: rows[0] });
   } catch (error) {
-    console.error("GET /api/tasks/[id] error:", error);
-    return NextResponse.json({ error: "Failed to fetch task" }, { status: 500 });
+    console.error("GET /api/tasks/[id]:", error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
 
@@ -30,41 +25,27 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-
-    const allowedFields = ["title", "description", "due_date", "priority", "status", "label", "user_email"];
+    const allowed = ["title", "description", "due_date", "due_time", "priority", "status", "label", "user_email"];
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    for (const field of allowedFields) {
+    for (const field of allowed) {
       if (body[field] !== undefined) {
         updates.push(`${field} = ?`);
         values.push(body[field]);
       }
     }
-
-    if (updates.length === 0) {
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
-    }
+    if (!updates.length) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
 
     values.push(id);
-    await pool.execute(
-      `UPDATE tasks SET ${updates.join(", ")} WHERE id = ?`,
-      values as any
-    );
+    await pool.execute(`UPDATE tasks SET ${updates.join(", ")} WHERE id = ?`, values as any);
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
-      "SELECT * FROM tasks WHERE id = ?",
-      [id]
-    );
-
-    if ((rows as RowDataPacket[]).length === 0) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
-    }
-
+    const [rows] = await pool.execute<RowDataPacket[]>("SELECT * FROM tasks WHERE id = ?", [id]);
+    if (!(rows as RowDataPacket[]).length) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ task: rows[0] });
   } catch (error) {
-    console.error("PATCH /api/tasks/[id] error:", error);
-    return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
+    console.error("PATCH /api/tasks/[id]:", error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
 
@@ -77,7 +58,7 @@ export async function DELETE(
     await pool.execute("DELETE FROM tasks WHERE id = ?", [id]);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/tasks/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete task" }, { status: 500 });
+    console.error("DELETE /api/tasks/[id]:", error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

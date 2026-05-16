@@ -18,31 +18,37 @@ async function migrate() {
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS tasks (
-      id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      title         VARCHAR(255) NOT NULL,
-      description   TEXT,
-      due_date      DATE NOT NULL,
-      priority      TINYINT UNSIGNED NOT NULL DEFAULT 5,
-      status        ENUM('todo','in_progress','done') NOT NULL DEFAULT 'todo',
-      label         VARCHAR(100) DEFAULT NULL,
-      user_email    VARCHAR(255) NOT NULL,
-      created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      title       VARCHAR(255) NOT NULL,
+      description TEXT,
+      due_date    DATE NOT NULL,
+      due_time    TIME DEFAULT NULL,
+      priority    TINYINT UNSIGNED NOT NULL DEFAULT 5,
+      status      ENUM('todo','in_progress','done') NOT NULL DEFAULT 'todo',
+      label       VARCHAR(100) DEFAULT NULL,
+      user_email  VARCHAR(255) NOT NULL,
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  // Add label column to existing installs
-  try {
-    await connection.execute(`ALTER TABLE tasks ADD COLUMN label VARCHAR(100) DEFAULT NULL AFTER status;`);
-    console.log("Added label column.");
-  } catch { console.log("label column already exists."); }
+  // Safe column additions for existing installs
+  const safeAdd = async (col, definition) => {
+    try {
+      await connection.execute(`ALTER TABLE tasks ADD COLUMN ${col} ${definition};`);
+      console.log(`Added column: ${col}`);
+    } catch { console.log(`Column ${col} already exists.`); }
+  };
+
+  await safeAdd("label",    "VARCHAR(100) DEFAULT NULL AFTER status");
+  await safeAdd("due_time", "TIME DEFAULT NULL AFTER due_date");
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS reminder_logs (
-      id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      task_id     INT UNSIGNED NOT NULL,
-      sent_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      type        ENUM('before_due','on_due','overdue') NOT NULL,
+      id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      task_id   INT UNSIGNED NOT NULL,
+      sent_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      type      ENUM('before_due','on_due','overdue') NOT NULL,
       INDEX idx_task_id (task_id),
       CONSTRAINT fk_reminder_task FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -57,24 +63,20 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  // Seed defaults (INSERT IGNORE = safe to re-run)
   await connection.execute(`
     INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES
-      ('default_user_email', ''),
-      ('smtp_host', ''),
-      ('smtp_port', '587'),
-      ('smtp_user', ''),
-      ('smtp_pass', ''),
-      ('smtp_from_name', 'TaskChaser'),
+      ('default_user_email',   ''),
+      ('smtp_host',            ''),
+      ('smtp_port',            '587'),
+      ('smtp_user',            ''),
+      ('smtp_pass',            ''),
+      ('smtp_from_name',       'TaskChaser'),
       ('reminder_days_before', '2'),
-      ('reminder_time', '09:00');
+      ('reminder_time',        '09:00');
   `);
 
-  // Add reminder_time to existing installs
-  try {
-    await connection.execute(`INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('reminder_time', '09:00');`);
-  } catch { /* ignore */ }
-
-  console.log("Migration complete.");
+  console.log("✅ Migration complete.");
   await connection.end();
 }
 
