@@ -33,15 +33,17 @@ async function migrate() {
   `);
 
   // Safe column additions for existing installs
-  const safeAdd = async (col, definition) => {
+  const safeAdd = async (table, col, definition) => {
     try {
-      await connection.execute(`ALTER TABLE tasks ADD COLUMN ${col} ${definition};`);
-      console.log(`Added column: ${col}`);
-    } catch { console.log(`Column ${col} already exists.`); }
+      await connection.execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${definition};`);
+      console.log(`Added column: ${table}.${col}`);
+    } catch {
+      console.log(`Column ${table}.${col} already exists — skipping.`);
+    }
   };
 
-  await safeAdd("label",    "VARCHAR(100) DEFAULT NULL AFTER status");
-  await safeAdd("due_time", "TIME DEFAULT NULL AFTER due_date");
+  await safeAdd("tasks", "label",    "VARCHAR(100) DEFAULT NULL AFTER status");
+  await safeAdd("tasks", "due_time", "TIME DEFAULT NULL AFTER due_date");
 
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS reminder_logs (
@@ -63,7 +65,20 @@ async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
-  // Seed defaults (INSERT IGNORE = safe to re-run)
+  // NEW: parse_logs — records every AI parse call for debugging
+  await connection.execute(`
+    CREATE TABLE IF NOT EXISTS parse_logs (
+      id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      user_input    TEXT NOT NULL          COMMENT 'Raw text the user typed or dictated',
+      llm_raw       TEXT                   COMMENT 'Exact JSON string returned by the LLM',
+      final_tasks   TEXT                   COMMENT 'Final normalised tasks array saved to DB (JSON)',
+      error         VARCHAR(500) DEFAULT NULL COMMENT 'Error message if parsing failed',
+      model         VARCHAR(100) DEFAULT NULL,
+      duration_ms   INT UNSIGNED DEFAULT NULL COMMENT 'Time taken for the LLM call in ms',
+      created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
   await connection.execute(`
     INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES
       ('default_user_email',   ''),
